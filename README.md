@@ -45,7 +45,7 @@ To use GMMB-Lineage, please set `R` working directory to `GMMB-Lineage-master` a
   ```
    
 
-* Next, assign Bayesian sampling parameters in `specify_pars.R`. For most of the parameters, BiTSC2 works just fine with default values. Some of the parameters you can change are:
+* Next, assign Bayesian sampling parameters in `specify_pars.R`. For most of the parameters, GMMB-Lineage works just fine with default values. Some of the parameters you can change are:
   ```
   MCMC_par$burnin <- 500  # burnin sample size
   MCMC_par$Nsamp <- 500   # number of samples for inference
