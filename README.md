@@ -52,7 +52,7 @@ To use GMMB-Lineage, please set `R` working directory to `GMMB-Lineage-master` a
   ```
 
 * After that, execute `sampler.R` to perform MCMC sampling, then the samples used for inference are stored in the `.Rdata` files;
-* finally, get the tree estimation by
+* Finally, get the tree estimation by
   ```
   tree_est <- tree_estimate(Trace)
   ```
