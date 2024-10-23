@@ -47,8 +47,8 @@ To use GMMB-Lineage, please set `R` working directory to `GMMB-Lineage-master` a
 
 * Next, assign Bayesian sampling parameters in `specify_pars.R`. For most of the parameters, GMMB-Lineage works just fine with default values. Some of the parameters you can change are:
   ```
-  MCMC_par$burnin <- 500  # burnin sample size
-  MCMC_par$Nsamp <- 500   # number of samples for inference
+  MCMC_par$burnin <- 1000  # burnin sample size
+  MCMC_par$Nsamp <- 1000   # number of samples for inference
   ```
 
 * After that, execute `sampler.R` to perform MCMC sampling, then the samples used for inference are stored in the `.Rdata` files;
