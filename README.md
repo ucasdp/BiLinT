@@ -56,5 +56,4 @@ To use GMMB-Lineage, please set `R` working directory to `GMMB-Lineage-master` a
   ```
   tree_est <- tree_estimate(Trace)
   ```
-
 ```
