@@ -1,9 +1,9 @@
-# GMMB-Lineage
-GMMB-Lineage: A Guassian model-based Bayesian lineage tree inference with multi-modal traits
+# BiLinT
+BiLinT: Bayesian inference of lineage tree by joint analysis of multi-modal lineage tracing data
 
 ## Software dependencies
 
-GMMB-Lineage is written with `R` and `C++`. Before implementing our software, please install the following packages in `R`:
+BiLinT is written with `R` and `C++`. Before implementing our software, please install the following packages in `R`:
 
  `tidyr`, `dplyr`, `coda`, `Rcpp`, `RcppArmadillo`, `ggplot2`, `PCMBase`, `ape`, `ggtree`, `castor`, `phangorn`, `TreeSearch`, `TreePar`, `TreeSim`, `msm`, `Rfast`,  `stringr`, `treeio`, `TreePar`, `ggstance`, `TreeTools`, `phytools`, `PCMBaseCpp`, `rdist`, `foreach`, `doParallel`, `Rcpp2doParallel`
 
@@ -13,7 +13,7 @@ GMMB-Lineage is written with `R` and `C++`. Before implementing our software, pl
 
 ## Usage
 
-To use GMMB-Lineage, please set `R` working directory to `GMMB-Lineage-master` after downloading this repository. Please make sure you have installed all the dependencies correctly, and then open source code `GMMB-Lineage_app.R` to execute the commands line by line as following.
+To use BiLinT, please set `R` working directory to `BiLinT-master` after downloading this repository. Please make sure you have installed all the dependencies correctly, and then open source code `BiLinT_app.R` to execute the commands line by line as following.
 
 * In *Model Input* section, first set random seed `myseed`, and then specify the folder `foldername` to save output files (a new folder will be created if it does not exist). For example: 
   ```
@@ -45,7 +45,7 @@ To use GMMB-Lineage, please set `R` working directory to `GMMB-Lineage-master` a
   ```
    
 
-* Next, assign Bayesian sampling parameters in `specify_pars.R`. For most of the parameters, GMMB-Lineage works just fine with default values. Some of the parameters you can change are:
+* Next, assign Bayesian sampling parameters in `specify_pars.R`. For most of the parameters, BiLinT works just fine with default values. Some of the parameters you can change are:
   ```
   MCMC_par$burnin <- 1000  # burnin sample size
   MCMC_par$Nsamp <- 1000   # number of samples for inference
