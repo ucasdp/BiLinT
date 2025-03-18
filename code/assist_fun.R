@@ -66,8 +66,8 @@ tree_estimate <- function(Trace){
   temp_crispr <- get_samp(Trace,'lik_crispr')
   temp <- temp_traits + temp_crispr
   tree <- Trace[[which.max(temp)]]$tree
-  tree$edge <- tree1$edge[order(tree1$edge[,1], tree1$edge[,2], decreasing = TRUE), ]
-  tree$edge.length <- tree1$edge.length[order(tree1$edge[,1], tree1$edge[,2], decreasing = TRUE)]
+  tree$edge <- tree$edge[order(tree$edge[,1], tree$edge[,2], decreasing = TRUE), ]
+  tree$edge.length <- tree$edge.length[order(tree$edge[,1], tree$edge[,2], decreasing = TRUE)]
   tree
 }
 
