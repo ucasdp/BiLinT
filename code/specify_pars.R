@@ -58,13 +58,14 @@ Params$tree_sampling_rate <- 0.5 # tree sampling rate
 ############  specify MCMC parameters ##################
 ########################################################
 
-MCMC_par$burnin <- 1000  # burnin sample size
-MCMC_par$Nsamp <- 1000  # number of samples for inference
+MCMC_par$burnin <- 500  # burnin sample size
+MCMC_par$Nsamp <- 500  # number of samples for inference
 # MCMC_par$Ntune <- 300  # number of samples used for adaptive parameter tuning
 
-MCMC_par$swap_interval <- 30 # make Matroplis Hastings move in every how many samples
+MCMC_par$swap_interval <- 3 # make Matroplis Hastings move in every how many samples
 MCMC_par$Nchain <- 4 # number of paralel chains
-MCMC_par$delta_T <- 0.35
+# MCMC_par$delta_T <- 0.5 ## toy model
+MCMC_par$delta_T <- 0.35 ### for general simulation
 
 Temperature <- seq(1, by=MCMC_par$delta_T, length.out = MCMC_par$Nchain)  # temperatures
 

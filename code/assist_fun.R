@@ -61,17 +61,23 @@ get_samp_tree <- function(MCMCout,subset=NULL){
   return(out)
 }
 
-tree_estimate <- function(Trace){
+tree_estimation <- function(Trace){
   temp_traits <- get_samp(Trace,'lik_traits')
   temp_crispr <- get_samp(Trace,'lik_crispr')
-  temp <- temp_traits + temp_crispr
-  tree <- Trace[[which.max(temp)]]$tree
-  tree$edge <- tree$edge[order(tree$edge[,1], tree$edge[,2], decreasing = TRUE), ]
-  tree$edge.length <- tree$edge.length[order(tree$edge[,1], tree$edge[,2], decreasing = TRUE)]
+  temp_likelihood <- get_samp(Trace,'likelihood')
+  prior <- NULL
+  for(i in 1:length(Trace)){
+    pr <- log_prior_all(Trace[[i]], Params, 1)
+    prior <- c(prior, pr)
+  }
+  pos <- temp_likelihood+prior
+  which.max(pos)
+  tree <- Trace[[which.max(pos)]]$tree
+  tree1 <- tree
+  tree$edge <- tree1$edge[order(tree1$edge[,1], tree1$edge[,2], decreasing = TRUE), ]
+  tree$edge.length <- tree1$edge.length[order(tree1$edge[,1], tree1$edge[,2], decreasing = TRUE)]
   tree
 }
-
-
 
 
 

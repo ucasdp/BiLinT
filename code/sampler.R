@@ -51,7 +51,7 @@ for(i in 1:MCMC_par$Nchain){
   tree_info <- tree_transform2(New_par[[i]]$tree)
   model.OU.BM2 <- BM_OU_obj_change(New_par[[i]], tree_info, model.OU.BM, Params)
   New_par[[i]]$lik_traits <- lik_obs_traits(New_par[[i]], tree_info, model.OU.BM2, obs_traits)
-
+  New_par[[i]]$likelihood <- New_par[[i]]$lik_crispr + New_par[[i]]$lik_traits
   #New_par[[i]]$lik_crispr <- tree_likehood_R(tree_Cas9, seq_data_mt, state, t1, t2,  r, l, Sc)
 }
 
@@ -72,8 +72,9 @@ beta_log_like <- matrix(0,MCMC_par$Nchain ,MCMC_par$Nsamp)  # keep beta chain li
 # stanmodel <- stan_model(file = 'OU_BM_sampling2.stan')
 cl <- makeCluster(4) # Use 4 cores, adjust as needed
 registerDoParallel(cl)
+sawp_time <- 0
 for(h in 1:Nrep){
-  # print_red(paste('the current iteration count:', h, sep=' '))
+  print_red(paste('the current iteration count:', h, sep=' '))
 
   ######## perform MCMC on each chahn ##########
   # for (z in 1:MCMC_par$Nchain){
@@ -100,19 +101,27 @@ for(h in 1:Nrep){
       logp_num <- New_par[[a]]$likelihood/Temperature[b] + New_par[[b]]$likelihood/Temperature[a]
       logp_num <-  logp_num + log_prior_all(New_par[[a]],Params,Temperature[b]) +
         log_prior_all(New_par[[b]],Params,Temperature[a])
+
+      # logp_num <-  log_prior_all(New_par[[a]],Params,1) +
+      #   log_prior_all(New_par[[b]],Params,1)
+
       #log of denominator
       logp_denom <-  New_par[[b]]$likelihood/Temperature[b] + New_par[[a]]$likelihood/Temperature[a]
       logp_denom <-  logp_denom + log_prior_all(New_par[[a]],Params,Temperature[a]) +
         log_prior_all(New_par[[b]],Params,Temperature[b])
+
+      # logp_denom <-  log_prior_all(New_par[[a]],Params,1) +
+      #   log_prior_all(New_par[[b]],Params,1)
       acc_prob <- min(1,exp(logp_num-logp_denom))  # probability of accepting swap
 
       if(runif(1)<acc_prob)
       {
+        sawp_time <- sawp_time + 1
         temp <- New_par[[a]]
         New_par[[a]] <- New_par[[b]]
         New_par[[b]] <- temp
+        message('samples switched')
       }
-
     }
   }
 
@@ -122,7 +131,7 @@ for(h in 1:Nrep){
   if(ct > 0) {
     Trace[[ct]] <- New_par[[1]]
     for(z in 1:length(New_par)){
-      beta_log_like[z,ct] <-  New_par[[z]]$lik_traits + New_par[[z]]$lik_crispr # calculate Ln for all chains
+      beta_log_like[z,ct] <-  New_par[[z]]$likelihood # calculate Ln for all chains
     }
   }
 
@@ -149,4 +158,4 @@ cat('completed. Time consumed:',difftime(Sys.time(),start_t,units = "mins"),'min
 
 # cur_file=paste(foldername,'/seed',myseed,'_N', N, '_M', M, '_K', K, '_', rep, '.Rdata',sep='')
 cur_file=paste(foldername,'/', dataname, '.Rdata',sep='')
-save(Params, MCMC_par, Trace, myseed, beta_log_like, file = cur_file)
+save(Params, MCMC_par, obs_traits_original, Trace, myseed, beta_log_like, file = cur_file)

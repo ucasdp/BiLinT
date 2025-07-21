@@ -8,12 +8,15 @@ samp_mu <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
   mu0 <- samp$mu[i]
   MU <- samp$mu
   Mu <- rnorm(1, mean = mu0, sd = Params$pro_sd)
+  # while (Mu < 0) {
+  #   Mu <- rnorm(1, mean = mu0, sd = Params$pro_sd)
+  # }
   MU[i] <- Mu
 
   # lpriors <- dmvnorm(samp$mu, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
   # lpriors2 <- dmvnorm(MU, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
-  lpriors <- sum(dmvnorm(samp$mu, 0, 1, log = TRUE)/temper)
-  lpriors2 <- sum(dmvnorm(MU, 0, 1, log = TRUE)/temper)
+  lpriors <- sum(mclust::dmvnorm(samp$mu, 0, 1, log = TRUE)/temper)
+  lpriors2 <- sum(mclust::dmvnorm(MU, 0, 1, log = TRUE)/temper)
 
   p0 <- samp$lik_traits/temper
 
@@ -24,6 +27,7 @@ samp_mu <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
 
   p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
   temp$lik_traits <- p1
+  temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
 
   if(runif(n=1L, min=0, max=1) <= exp(p1 + lpriors2 - p0 - lpriors)){
@@ -61,6 +65,7 @@ samp_alpha <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper)
   p0 <- samp$lik_traits/temper
   p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
   temp$lik_traits <- p1
+  temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
 
   if(runif(n=1L, min=0, max=1) <= exp(p1 + lpriors2 - p0 - lpriors)){
@@ -86,8 +91,8 @@ samp_theta <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temp
   # lpriors <- dmvnorm(samp$theta, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
   # lpriors2 <- dmvnorm(THETA, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
 
-  lpriors <- sum(dmvnorm(samp$theta, 0, 1, log = TRUE)/temper)
-  lpriors2 <- sum(dmvnorm(THETA, 0, 1, log = TRUE)/temper)
+  lpriors <- sum(mclust::dmvnorm(samp$theta, 0, 1, log = TRUE)/temper)
+  lpriors2 <- sum(mclust::dmvnorm(THETA, 0, 1, log = TRUE)/temper)
 
   p0 <- samp$lik_traits/temper
 
@@ -98,6 +103,7 @@ samp_theta <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temp
 
   p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
   temp$lik_traits <- p1
+  temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
 
   if(runif(n=1L, min=0, max=1) <= exp(p1 + lpriors2 - p0 - lpriors)){
@@ -145,6 +151,7 @@ samp_sigma <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temp
     return(samp)
   }else{
     temp$lik_traits <- p1
+    temp$likelihood <- temp$lik_crispr + temp$lik_traits
     p1 <- p1/temper
     # print(p1)
     if(runif(n=1L, min=0, max=1) <= exp(p1 + lpriors2 - p0 - lpriors)){
@@ -196,6 +203,7 @@ samp_S <- function(samp, i, obs_seq, state, Params, temper)
   p1 <- tree_likehood(tree_Cas9, tree_PostOrder, dis, childlist, obs_seq, state, t1, t2, r, samp$l, Sc)
   # p1 <- tree_likehood_R(tree, obs_seq, state, t1, t2, r, samp$l, Sc)
   temp$lik_crispr <- p1
+  temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
 
   if(runif(n=1L, min=0, max=1) <= exp(p1 + lpriors2 - p0 - lpriors)){
@@ -245,6 +253,7 @@ samp_c <- function(samp, obs_seq, state, Params, temper)
 
   p1 <- tree_likehood(tree_Cas9, tree_PostOrder, dis, childlist, obs_seq, state, t1, t2, r, samp$l, Sc)
   temp$lik_crispr <- p1
+  temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
 
 
@@ -287,6 +296,7 @@ samp_l <- function(samp, obs_seq, state, Params, temper)
 
   p1 <- tree_likehood(tree_Cas9, tree_PostOrder, dis, childlist, obs_seq, state, t1, t2, r, l, Sc)
   temp$lik_crispr <- p1
+  temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
 
   if(runif(n=1L, min=0, max=1) <= exp(p1 + lpriors2 - p0 - lpriors)){
@@ -341,6 +351,7 @@ samp_tree <- function(samp, obs_seq, state, Params, obs_traits, temper){
     if(!is.na(lik_traits2)){
       temp$lik_traits <- lik_traits2
       temp$lik_crispr <- lik_crispr2
+      temp$likelihood <- temp$lik_crispr + temp$lik_traits
     }
 
     # print(paste('p1: ', p1, 'lpriors2: ', lpriors2, 'p0: ', p0, 'lpriors: ', lpriors, sep=''))
@@ -546,11 +557,11 @@ log_prior_all <- function(samp, Params, temper){
   alpha_lpriors <- dexp(samp$alpha, rate = 2, log = TRUE)
   # mu_lpriors <- dmvnorm(samp$mu, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)
   # theta_lpriors <- dmvnorm(samp$theta, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)
-  mu_lpriors <- sum(dmvnorm(samp$mu, 0, 1, log = TRUE))
-  theta_lpriors <- sum(dmvnorm(samp$theta, 0, 1, log = TRUE))
+  mu_lpriors <- sum(mclust::dmvnorm(samp$mu, 0, 1, log = TRUE))
+  theta_lpriors <- sum(mclust::dmvnorm(samp$theta, 0, 1, log = TRUE))
   sigma_lpriors <- sum(LaplacesDemon::dhalft(samp$sigma, scale= 0.25, nu=1, log = TRUE))
   all_lpriors <- S_lpriors + l_lpriors + c_lpriors + tree_lpriors + alpha_lpriors +
     mu_lpriors + theta_lpriors + sigma_lpriors
-  return(all_lpriors)
+  return(all_lpriors/temper)
 }
 

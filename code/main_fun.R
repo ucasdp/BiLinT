@@ -34,7 +34,7 @@ init_gen_fun <- function(Params){
   # Create a hierarchical clustering object using UPGMA
   hc <- hclust(as.dist(dis_cluster), method = "average")  # "average" is UPGMA
   # Plot the tree
-  plot(as.dendrogram(hc))
+  # plot(as.dendrogram(hc))
 
   cluster_tree <- as.phylo(hc)
   cluster_tree$edge.length <- cluster_tree$edge.length / max(diag(vcv(cluster_tree))) * t2
@@ -43,7 +43,7 @@ init_gen_fun <- function(Params){
   RNA_data <- obs_traits_original
 
   joint_tree <- cluster_tree
-  ggtree(cluster_tree) + geom_text2(aes(label=label),hjust=-.3,color="red")
+  # ggtree(cluster_tree) + geom_text2(aes(label=label),hjust=-.3,color="red")
 
   for(i in 1:nrow(seq_data_cluster)){
     cells_icluster <- NULL
