@@ -537,7 +537,7 @@ tree_propose <- function(tree0, t_tol, t2, prob_internal=NULL){
     #ggtree(tree) + geom_text2(aes(label=node),hjust=-.3,color="red")
   }else{
     tree <- NULL
-    print('tree not changed')
+    # print('tree not changed')
   }
   return(tree)
 }

@@ -120,7 +120,7 @@ for(h in 1:Nrep){
         temp <- New_par[[a]]
         New_par[[a]] <- New_par[[b]]
         New_par[[b]] <- temp
-        message('samples switched')
+        # message('samples switched')
       }
     }
   }
