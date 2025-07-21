@@ -74,7 +74,7 @@ cl <- makeCluster(4) # Use 4 cores, adjust as needed
 registerDoParallel(cl)
 sawp_time <- 0
 for(h in 1:Nrep){
-  print_red(paste('the current iteration count:', h, sep=' '))
+  # print_red(paste('the current iteration count:', h, sep=' '))
 
   ######## perform MCMC on each chahn ##########
   # for (z in 1:MCMC_par$Nchain){
