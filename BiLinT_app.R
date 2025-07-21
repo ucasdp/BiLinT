@@ -37,12 +37,12 @@ require(Rcpp2doParallel)
 ######## load functions ################################
 ########################################################
 
-source('Crispr_Cas9_cpplik.R')
-source('Crispr_Cas9_lik.R')
-source('main_fun.R')
-source('par_samp_para.R')
-source('assist_fun.R')
-source('model.OU.BM_pro.R')
+source('code/Crispr_Cas9_cpplik.R')
+source('code/Crispr_Cas9_lik.R')
+source('code/main_fun.R')
+source('code/par_samp_para.R')
+source('code/assist_fun.R')
+source('code/model.OU.BM_pro.R')
 
 
 
@@ -52,9 +52,11 @@ source('model.OU.BM_pro.R')
 
 myseed <-  1               # set random seed
 foldername <-  "temp_out"          # set output foldername
+dataname <- 'toy_model'
 dir.create(foldername)  # folder where outputs are saved
 
 muti_data <- readRDS('toy_model_data.rds')
+# muti_data <- readRDS('/Users/chenziwei/Downloads/BiTSC2-master_RNACRISPR/BigLineage4/SimData/sim_cell64_Ncrispr16_c0.001_l0.01_1.rds')
 seq_data_mt <- muti_data$seq_data_mt ### barcode data, where row represents cells, columns represent targets
 M <- dim(muti_data$seq_data_mt)[1]
 N <- dim(muti_data$seq_data_mt)[2]
@@ -64,9 +66,9 @@ obs_traits <- prcomp(obs_traits_original, rank. = 5)$x
 K <- dim(obs_traits)[2]
 state <- sort(setdiff(unique(as.vector(seq_data_mt)), c(0, -1)))
 
-t1 <- 0
-t2 <- muti_data$seq_para_data$t2
-t_tol <- muti_data$seq_para_data$t_tol
+t1 <- 0  # scaring start time
+t2 <- muti_data$seq_para_data$t2 # scaring end time
+t_tol <- muti_data$seq_para_data$t_tol # total experiment time
 
 ##############################################
 ######## load parameter file ################
@@ -80,15 +82,15 @@ source('specify_pars.R')
 ############################################
 source("sampler.R")
 
-
-
 ########################################################
 ########## get tree estimates ###############
 ########################################################
-tree_est <- tree_estimate(Trace)
+tree_est <- tree_estimation(Trace)
 
-
-
+ggtree(tree_est, size = 1,  layout = "circular",branch.length = "none") +
+  geom_tiplab(size=5) +
+  geom_point2(aes(subset=(node %in% c(65:127))),size=2)+
+  theme_tree()+ theme(legend.position = "none")
 
 
 
