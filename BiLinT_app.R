@@ -56,7 +56,6 @@ dataname <- 'toy_model'
 dir.create(foldername)  # folder where outputs are saved
 
 muti_data <- readRDS('toy_model_data.rds')
-# muti_data <- readRDS('/Users/chenziwei/Downloads/BiTSC2-master_RNACRISPR/BigLineage4/SimData/sim_cell64_Ncrispr16_c0.001_l0.01_1.rds')
 seq_data_mt <- muti_data$seq_data_mt ### barcode data, where row represents cells, columns represent targets
 M <- dim(muti_data$seq_data_mt)[1]
 N <- dim(muti_data$seq_data_mt)[2]
@@ -73,7 +72,6 @@ t_tol <- muti_data$seq_para_data$t_tol # total experiment time
 ##############################################
 ######## load parameter file ################
 ############################################
-myseed <- 1
 source('specify_pars.R')
 
 

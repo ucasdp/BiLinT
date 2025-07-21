@@ -23,6 +23,7 @@ To use BiLinT, please set `R` working directory to `BiLinT-master` after downloa
 
   myseed <-  1               # set random seed
   foldername <-  "temp_out"          # set output foldername
+  dataname <- 'toy_model'
   dir.create(foldername)  # folder where outputs are saved
   ```
 
@@ -47,12 +48,19 @@ To use BiLinT, please set `R` working directory to `BiLinT-master` after downloa
 
 * Next, assign Bayesian sampling parameters in `specify_pars.R`. For most of the parameters, BiLinT works just fine with default values. Some of the parameters you can change are:
   ```
-  MCMC_par$burnin <- 1000  # burnin sample size
-  MCMC_par$Nsamp <- 1000   # number of samples for inference
+  MCMC_par$burnin <- 500  # burnin sample size
+  MCMC_par$Nsamp <- 500   # number of samples for inference
   ```
 
 * After that, execute `sampler.R` to perform MCMC sampling, then the samples used for inference are stored in the `.Rdata` files;
 * Finally, get the tree estimation by
   ```
   tree_est <- tree_estimate(Trace)
+  ```
+  * The tree can be displayed by
+  ```
+  ggtree(tree_est, size = 1,  layout = "circular",branch.length = "none") +
+  geom_tiplab(size=5) +
+  geom_point2(aes(subset=(node %in% c(65:127))),size=2)+
+  theme_tree()+ theme(legend.position = "none")
   ```
