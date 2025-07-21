@@ -57,7 +57,7 @@ To use BiLinT, please set `R` working directory to `BiLinT-master` after downloa
   ```
   tree_est <- tree_estimate(Trace)
   ```
-  * The tree can be displayed by
+* The tree can be displayed by
   ```
   ggtree(tree_est, size = 1,  layout = "circular",branch.length = "none") +
   geom_tiplab(size=5) +
