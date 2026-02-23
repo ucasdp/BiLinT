@@ -49,11 +49,14 @@ BM_OU_obj_change <- function(temp, tree_info, model.OU.BM, Params){
 }
 
 
-lik_obs_traits <- function(temp, tree_info, model.OU.BM, obs_traits){
-  #tree <- temp$tree
-  # tree_info <- tree_transform2(tree)
+lik_obs_traits <- function(temp, tree_info, model.OU.BM, obs_traits, obs_traits_t = NULL, metaI = NULL){
   tree.ab <- tree_info$tree
-  PCMBase_lh <- PCMLik(t(obs_traits), tree.ab, model.OU.BM, metaI = PCMInfoCpp)
-  return(PCMBase_lh)
+  if (is.null(obs_traits_t)) {
+    obs_traits_t <- t(obs_traits)
+  }
+  if (is.null(metaI)) {
+    return(PCMLik(obs_traits_t, tree.ab, model.OU.BM, metaI = PCMInfoCpp))
+  }
+  PCMLik(obs_traits_t, tree.ab, model.OU.BM, metaI = metaI)
 }
 

@@ -3,7 +3,7 @@
 ########## sampling of mu #########################
 #######################################################
 
-samp_mu <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
+samp_mu <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = NULL, pcm_metaI = NULL)
 {
   mu0 <- samp$mu[i]
   MU <- samp$mu
@@ -13,10 +13,10 @@ samp_mu <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
   # }
   MU[i] <- Mu
 
-  # lpriors <- dmvnorm(samp$mu, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
-  # lpriors2 <- dmvnorm(MU, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
-  lpriors <- sum(mclust::dmvnorm(samp$mu, 0, 1, log = TRUE)/temper)
-  lpriors2 <- sum(mclust::dmvnorm(MU, 0, 1, log = TRUE)/temper)
+  # Prior of mu is iid N(0,1). In MH ratio, unchanged coordinates cancel,
+  # so we only need the changed coordinate's prior contribution.
+  lpriors <- stats::dnorm(mu0, mean = 0, sd = 1, log = TRUE)/temper
+  lpriors2 <- stats::dnorm(Mu, mean = 0, sd = 1, log = TRUE)/temper
 
   p0 <- samp$lik_traits/temper
 
@@ -25,7 +25,7 @@ samp_mu <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
 
   model.OU.BM2 <- BM_OU_obj_change(temp, tree_info, model.OU.BM, Params)
 
-  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
+  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits, obs_traits_t = obs_traits_t, metaI = pcm_metaI)
   temp$lik_traits <- p1
   temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
@@ -38,9 +38,9 @@ samp_mu <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
   }
 }
 
-samp_mu_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper){
+samp_mu_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = NULL, pcm_metaI = NULL){
   for(i in 1:length(samp$mu)){
-    samp <- samp_mu(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
+    samp <- samp_mu(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = obs_traits_t, pcm_metaI = pcm_metaI)
   }
   return(samp)
 }
@@ -50,7 +50,7 @@ samp_mu_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper
 #################### sampling of alpha ######################
 #########################################################
 
-samp_alpha <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper)
+samp_alpha <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = NULL, pcm_metaI = NULL)
 {
   alpha0 <- samp$alpha
   alpha <- rtnorm(1, mean = alpha0, sd = Params$pro_sd, lower = 0, upper = Inf)
@@ -63,7 +63,7 @@ samp_alpha <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper)
   model.OU.BM2 <- BM_OU_obj_change(temp, tree_info, model.OU.BM, Params)
 
   p0 <- samp$lik_traits/temper
-  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
+  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits, obs_traits_t = obs_traits_t, metaI = pcm_metaI)
   temp$lik_traits <- p1
   temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
@@ -81,18 +81,16 @@ samp_alpha <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper)
 ########## sampling of theta #########################
 #######################################################
 
-samp_theta <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
+samp_theta <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = NULL, pcm_metaI = NULL)
 {
   theta0 <- samp$theta[i]
   THETA <- samp$theta
   Theta <- rnorm(1, mean = theta0, sd = Params$pro_sd)
   THETA[i] <- Theta
 
-  # lpriors <- dmvnorm(samp$theta, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
-  # lpriors2 <- dmvnorm(THETA, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)/temper
-
-  lpriors <- sum(mclust::dmvnorm(samp$theta, 0, 1, log = TRUE)/temper)
-  lpriors2 <- sum(mclust::dmvnorm(THETA, 0, 1, log = TRUE)/temper)
+  # Prior of theta is iid N(0,1); unchanged coordinates cancel in MH ratio.
+  lpriors <- stats::dnorm(theta0, mean = 0, sd = 1, log = TRUE)/temper
+  lpriors2 <- stats::dnorm(Theta, mean = 0, sd = 1, log = TRUE)/temper
 
   p0 <- samp$lik_traits/temper
 
@@ -101,7 +99,7 @@ samp_theta <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temp
 
   model.OU.BM2 <- BM_OU_obj_change(temp, tree_info, model.OU.BM, Params)
 
-  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
+  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits, obs_traits_t = obs_traits_t, metaI = pcm_metaI)
   temp$lik_traits <- p1
   temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
@@ -114,9 +112,9 @@ samp_theta <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temp
   }
 }
 
-samp_theta_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper){
+samp_theta_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = NULL, pcm_metaI = NULL){
   for(i in 1:length(samp$theta)){
-    samp <- samp_theta(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
+    samp <- samp_theta(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = obs_traits_t, pcm_metaI = pcm_metaI)
   }
   return(samp)
 }
@@ -127,7 +125,7 @@ samp_theta_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, tem
 ########## sampling of sigma #########################
 #######################################################
 
-samp_sigma <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
+samp_sigma <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = NULL, pcm_metaI = NULL)
 {
   sigma0 <- samp$sigma[i]
   # print(samp$sigma)
@@ -146,7 +144,7 @@ samp_sigma <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temp
   temp$sigma <- SIGMA
 
   model.OU.BM2 <- BM_OU_obj_change(temp, tree_info, model.OU.BM, Params)
-  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
+  p1 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits, obs_traits_t = obs_traits_t, metaI = pcm_metaI)
   if(is.na(p1)){
     return(samp)
   }else{
@@ -163,9 +161,9 @@ samp_sigma <- function(samp, i, obs_traits, model.OU.BM, tree_info, Params, temp
   }
 }
 
-samp_sigma_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper){
+samp_sigma_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = NULL, pcm_metaI = NULL){
   for(i in 1:length(samp$sigma)){
-    samp <- samp_sigma(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper)
+    samp <- samp_sigma(samp, i, obs_traits, model.OU.BM, tree_info, Params, temper, obs_traits_t = obs_traits_t, pcm_metaI = pcm_metaI)
   }
   return(samp)
 }
@@ -175,7 +173,7 @@ samp_sigma_all <- function(samp, obs_traits, model.OU.BM, tree_info, Params, tem
 ########## sampling of S #########################
 #######################################################
 
-samp_S <- function(samp, i, obs_seq, state, Params, temper)
+samp_S <- function(samp, i, obs_seq, state, Params, temper, tree_cache = NULL)
 {
   S0 <- samp$S[i]
   SS <- samp$S
@@ -193,14 +191,23 @@ samp_S <- function(samp, i, obs_seq, state, Params, temper)
   temp <- samp
   temp$S <- SS
 
-  tree <- samp$tree
-  tree_Cas9 <- tree_transform1(tree, t1, t2)
-  tree_PostOrder <- c(reorder_tree_edges(tree_Cas9, root_to_tips = FALSE)$edge[,2], length(tree_Cas9$tip.label)+1)
-  childlist <- ChildList(tree_Cas9, tree_PostOrder)
-  dis <- get_all_distances_to_root(tree_Cas9, as_edge_count=FALSE)
-  dis[which(dis==0)] <- 10^(-5)
-
-  p1 <- tree_likehood(tree_Cas9, tree_PostOrder, dis, childlist, obs_seq, state, t1, t2, r, samp$l, Sc)
+  if (is.null(tree_cache)) {
+    tree_cache <- cas9_cache(samp$tree, t1, samp$t2)
+  }
+  p1 <- tree_likehood(
+    tree_cache$tree_Cas9,
+    tree_cache$tree_PostOrder,
+    tree_cache$dis,
+    tree_cache$childlist,
+    obs_seq,
+    state,
+    t1,
+    samp$t2,
+    r,
+    samp$l,
+    Sc,
+    loglik = TRUE
+  )
   # p1 <- tree_likehood_R(tree, obs_seq, state, t1, t2, r, samp$l, Sc)
   temp$lik_crispr <- p1
   temp$likelihood <- temp$lik_crispr + temp$lik_traits
@@ -213,11 +220,11 @@ samp_S <- function(samp, i, obs_seq, state, Params, temper)
   }
 }
 
-samp_S_all <- function(samp, obs_seq, state, Params, temper){
+samp_S_all <- function(samp, obs_seq, state, Params, temper, tree_cache = NULL){
   S0 <- samp$S
   SS <- S0
   for(i in 1:(length(S0)-1)){
-    samp <- samp_S(samp, i, obs_seq, state, Params, temper)
+    samp <- samp_S(samp, i, obs_seq, state, Params, temper, tree_cache = tree_cache)
   }
   return(samp)
 }
@@ -228,7 +235,7 @@ samp_S_all <- function(samp, obs_seq, state, Params, temper){
 #################### sampling of c ######################
 #########################################################
 
-samp_c <- function(samp, obs_seq, state, Params, temper)
+samp_c <- function(samp, obs_seq, state, Params, temper, tree_cache = NULL)
 {
   c0 <- samp$c
   c <- rtnorm(1, mean = c0, sd = Params$pro_sd, lower = 0, upper = Inf)
@@ -236,22 +243,32 @@ samp_c <- function(samp, obs_seq, state, Params, temper)
   Sc <- samp$S * c
   r <- samp$l + sum(Sc)
 
-  lpriors <- sum(dlnorm(c0, meanlog = Params$c_meanlog, sdlog = Params$c_sdlog, log = TRUE))/temper
-  lpriors2 <- sum(dlnorm(c, meanlog = Params$c_meanlog, sdlog = Params$c_sdlog, log = TRUE))/temper
+  # c is scalar; sum() is unnecessary overhead
+  lpriors <- stats::dlnorm(c0, meanlog = Params$c_meanlog, sdlog = Params$c_sdlog, log = TRUE)/temper
+  lpriors2 <- stats::dlnorm(c, meanlog = Params$c_meanlog, sdlog = Params$c_sdlog, log = TRUE)/temper
 
 
   p0 <- samp$lik_crispr/temper
   temp <- samp
   temp$c <- c
 
-  tree <- samp$tree
-  tree_Cas9 <- tree_transform1(tree, t1, t2)
-  tree_PostOrder <- c(reorder_tree_edges(tree_Cas9, root_to_tips = FALSE)$edge[,2], length(tree_Cas9$tip.label)+1)
-  childlist <- ChildList(tree_Cas9, tree_PostOrder)
-  dis <- get_all_distances_to_root(tree_Cas9, as_edge_count=FALSE)
-  dis[which(dis==0)] <- 10^(-5)
-
-  p1 <- tree_likehood(tree_Cas9, tree_PostOrder, dis, childlist, obs_seq, state, t1, t2, r, samp$l, Sc)
+  if (is.null(tree_cache)) {
+    tree_cache <- cas9_cache(samp$tree, t1, samp$t2)
+  }
+  p1 <- tree_likehood(
+    tree_cache$tree_Cas9,
+    tree_cache$tree_PostOrder,
+    tree_cache$dis,
+    tree_cache$childlist,
+    obs_seq,
+    state,
+    t1,
+    samp$t2,
+    r,
+    samp$l,
+    Sc,
+    loglik = TRUE
+  )
   temp$lik_crispr <- p1
   temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
@@ -271,7 +288,7 @@ samp_c <- function(samp, obs_seq, state, Params, temper)
 #################### sampling of l ######################
 #########################################################
 
-samp_l <- function(samp, obs_seq, state, Params, temper)
+samp_l <- function(samp, obs_seq, state, Params, temper, tree_cache = NULL)
 {
   l0 <- samp$l
   l <- rtnorm(1, mean = l0, sd = Params$pro_sd, lower = 0, upper = Inf)
@@ -279,22 +296,32 @@ samp_l <- function(samp, obs_seq, state, Params, temper)
   Sc <- samp$S * samp$c
   r <- l + sum(Sc)
 
-  lpriors <- sum(dlnorm(l0, meanlog = Params$l_meanlog, sdlog = Params$l_sdlog, log = TRUE))/temper
-  lpriors2 <- sum(dlnorm(l, meanlog = Params$l_meanlog, sdlog = Params$l_sdlog, log = TRUE))/temper
+  # l is scalar; sum() is unnecessary overhead
+  lpriors <- stats::dlnorm(l0, meanlog = Params$l_meanlog, sdlog = Params$l_sdlog, log = TRUE)/temper
+  lpriors2 <- stats::dlnorm(l, meanlog = Params$l_meanlog, sdlog = Params$l_sdlog, log = TRUE)/temper
 
   p0 <- samp$lik_crispr/temper
 
   temp <- samp
   temp$l <- l
 
-  tree <- samp$tree
-  tree_Cas9 <- tree_transform1(tree, t1, t2)
-  tree_PostOrder <- c(reorder_tree_edges(tree_Cas9, root_to_tips = FALSE)$edge[,2], length(tree_Cas9$tip.label)+1)
-  childlist <- ChildList(tree_Cas9, tree_PostOrder)
-  dis <- get_all_distances_to_root(tree_Cas9, as_edge_count=FALSE)
-  dis[which(dis==0)] <- 10^(-5)
-
-  p1 <- tree_likehood(tree_Cas9, tree_PostOrder, dis, childlist, obs_seq, state, t1, t2, r, l, Sc)
+  if (is.null(tree_cache)) {
+    tree_cache <- cas9_cache(samp$tree, t1, samp$t2)
+  }
+  p1 <- tree_likehood(
+    tree_cache$tree_Cas9,
+    tree_cache$tree_PostOrder,
+    tree_cache$dis,
+    tree_cache$childlist,
+    obs_seq,
+    state,
+    t1,
+    samp$t2,
+    r,
+    l,
+    Sc,
+    loglik = TRUE
+  )
   temp$lik_crispr <- p1
   temp$likelihood <- temp$lik_crispr + temp$lik_traits
   p1 <- p1/temper
@@ -307,13 +334,93 @@ samp_l <- function(samp, obs_seq, state, Params, temper)
 }
 
 
+#########################################################
+#################### sampling of t2 ######################
+#########################################################
+
+log_prior_t2 <- function(t2, Params) {
+  if (!isTRUE(Params$sample_t2)) return(0)
+  lo <- as.numeric(Params$t2_lower)
+  hi <- as.numeric(Params$t2_upper)
+  if (!is.finite(t2) || !is.finite(lo) || !is.finite(hi) || hi <= lo) return(-Inf)
+  if (t2 <= lo || t2 >= hi) return(-Inf)
+  -log(hi - lo)
+}
+
+.reflect_to_interval <- function(x, lo, hi) {
+  # Reflect x into [lo, hi] using deterministic reflections (keeps RW proposal symmetric).
+  while (x < lo || x > hi) {
+    if (x < lo) x <- 2 * lo - x
+    if (x > hi) x <- 2 * hi - x
+  }
+  x
+}
+
+samp_t2 <- function(samp, obs_seq, state, Params, temper) {
+  if (!isTRUE(Params$sample_t2)) return(samp)
+  if (is.null(samp$t2) || !is.finite(samp$t2)) return(samp)
+
+  lo0 <- as.numeric(Params$t2_lower)
+  hi0 <- as.numeric(Params$t2_upper)
+  if (!is.finite(lo0) || !is.finite(hi0) || hi0 <= lo0) return(samp)
+
+  eps <- 1e-6
+  lo <- lo0 + eps
+  hi <- hi0 - eps
+  if (hi <= lo) return(samp)
+
+  t2_0 <- as.numeric(samp$t2)
+  sd_prop <- as.numeric(Params$t2_pro_sd)
+  if (!is.finite(sd_prop) || sd_prop <= 0) sd_prop <- 0.5
+
+  t2_1 <- .reflect_to_interval(t2_0 + stats::rnorm(1, mean = 0, sd = sd_prop), lo, hi)
+
+  lpriors <- log_prior_t2(t2_0, Params) / temper
+  lpriors2 <- log_prior_t2(t2_1, Params) / temper
+  if (!is.finite(lpriors2)) return(samp)
+
+  p0 <- samp$lik_crispr / temper
+
+  temp <- samp
+  temp$t2 <- t2_1
+
+  Sc <- temp$S * temp$c
+  r <- temp$l + sum(Sc)
+
+  tree_cache_1 <- cas9_cache(temp$tree, t1, t2_1)
+  p1 <- tree_likehood(
+    tree_cache_1$tree_Cas9,
+    tree_cache_1$tree_PostOrder,
+    tree_cache_1$dis,
+    tree_cache_1$childlist,
+    obs_seq,
+    state,
+    t1,
+    t2_1,
+    r,
+    temp$l,
+    Sc,
+    loglik = TRUE
+  )
+
+  temp$lik_crispr <- p1
+  temp$likelihood <- temp$lik_crispr + temp$lik_traits
+  p1 <- p1 / temper
+
+  if (runif(n = 1L, min = 0, max = 1) <= exp(p1 + lpriors2 - p0 - lpriors)) {
+    return(temp)
+  }
+  samp
+}
+
+
 #####################################################
 ########## sampling of tree #########################
 #######################################################
 
-samp_tree <- function(samp, obs_seq, state, Params, obs_traits, temper){
+samp_tree <- function(samp, obs_seq, state, Params, obs_traits, temper, obs_traits_t = NULL){
   tree0 <- samp$tree
-  tree <- tree_propose(tree0, t_tol, t2, prob_internal=NULL)
+  tree <- tree_propose(tree0, t_tol, samp$t2, prob_internal=NULL)
   # tree <- try(u <- tree_propose(tree0, t_tol, t2, prob_internal=NULL), silent=T)
   p0 <- (samp$lik_traits + samp$lik_crispr)/temper
 
@@ -335,17 +442,25 @@ samp_tree <- function(samp, obs_seq, state, Params, obs_traits, temper){
     temp$tree <- tree
 
     model.OU.BM2 <- BM_OU_obj_change(temp, tree_info, model.OU.BM, Params)
-    lik_traits2 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits)
+    lik_traits2 <- lik_obs_traits(temp, tree_info, model.OU.BM2, obs_traits, obs_traits_t = obs_traits_t)
 
     Sc <- samp$S * samp$c
     r <-  samp$l + sum(Sc)
-    tree_Cas9 <- tree_transform1(tree, t1, t2)
-    tree_PostOrder <- c(reorder_tree_edges(tree_Cas9, root_to_tips = FALSE)$edge[,2], length(tree_Cas9$tip.label)+1)
-    childlist <- ChildList(tree_Cas9, tree_PostOrder)
-    dis <- get_all_distances_to_root(tree_Cas9, as_edge_count=FALSE)
-    dis[which(dis==0)] <- 10^(-5)
-
-    lik_crispr2 <- tree_likehood(tree_Cas9, tree_PostOrder, dis, childlist, obs_seq, state, t1, t2, r, temp$l, Sc)
+    tree_cache <- cas9_cache(tree, t1, samp$t2)
+    lik_crispr2 <- tree_likehood(
+      tree_cache$tree_Cas9,
+      tree_cache$tree_PostOrder,
+      tree_cache$dis,
+      tree_cache$childlist,
+      obs_seq,
+      state,
+      t1,
+      samp$t2,
+      r,
+      temp$l,
+      Sc,
+      loglik = TRUE
+    )
     p1 <- (lik_traits2 + lik_crispr2)/temper
 
     if(!is.na(lik_traits2)){
@@ -374,41 +489,37 @@ tree_propose <- function(tree0, t_tol, t2, prob_internal=NULL){
   #   tree0 <- tree
   # }
   # tree0$node.label <- c(1:tree0$Nnode)+Ntip(tree0)
-  dis <- get_all_distances_to_root(tree0, as_edge_count=FALSE)
-  splitNode <- NULL
-  for(i in 1:nrow(tree0$edge)){
-    node1 <- tree0$edge[i,1]
-    node2 <- tree0$edge[i,2]
-    if(t2 > dis[node1] && t2 <= dis[node2]){
-      splitNode <- c(splitNode, node2) # add point on the tree at time t2 one by one
-    }
-  }
-  CrisprNode <- NULL
-  for(i in 1:nrow(tree0$edge)){
-    node1 <- tree0$edge[i,1]
-    node2 <- tree0$edge[i,2]
-    if(dis[node2] < t2){
-      CrisprNode <- c(CrisprNode, node2)
-    }
-  }
-
-  if (is.null(prob_internal)){
-    prob_internal <- dunif(1:(tree0$Nnode + length(tree0$tip.label)),1,tree0$Nnode + length(tree0$tip.label))
-  }
-
-  ### the pruned subtree
-  subtree_swap <- sample(tree0$Nnode + length(tree0$tip.label), 1, prob = prob_internal)
-  tree0_root <- ape::Ntip(tree0) + 1
-  tree0_leaves <- c(1:ape::Ntip(tree0))
-  while(subtree_swap %in% c(splitNode, tree0_root, tree0_leaves)){
-    subtree_swap <- sample(tree0$Nnode + length(tree0$tip.label), 1, prob = prob_internal)
-  }
-
-  splitnode_Ans <- intersect(Ancestors(tree0, subtree_swap), splitNode) ### the subtree root, i.e., one of the split node
+  dis <- get_all_distances_to_root(tree0, as_edge_count = FALSE)
 
   edge <- tree0$edge
   parent <- edge[, 1]
   child <- edge[, 2]
+  nTip <- ape::Ntip(tree0)
+  nTotal <- tree0$Nnode + nTip
+
+  # Vectorized equivalents of the original loops (preserve edge order)
+  splitNode_idx <- which((t2 > dis[parent]) & (t2 <= dis[child]))
+  splitNode <- if (length(splitNode_idx) > 0) child[splitNode_idx] else NULL
+
+  CrisprNode_idx <- which(dis[child] < t2)
+  CrisprNode <- if (length(CrisprNode_idx) > 0) child[CrisprNode_idx] else NULL
+
+  if (is.null(prob_internal)) {
+    # uniform weights; faster than calling dunif() and equivalent for sample(prob=)
+    prob_internal <- rep.int(1, nTotal)
+  }
+
+  ### the pruned subtree
+  subtree_swap <- sample(nTotal, 1, prob = prob_internal)
+  tree0_root <- nTip + 1
+  tree0_leaves <- 1:nTip
+  forbidden_nodes <- c(splitNode, tree0_root, tree0_leaves)
+  while (subtree_swap %in% forbidden_nodes) {
+    subtree_swap <- sample(nTotal, 1, prob = prob_internal)
+  }
+
+  splitnode_Ans <- intersect(Ancestors(tree0, subtree_swap), splitNode) ### the subtree root, i.e., one of the split node
+
   edge.length <- tree0$edge.length
   names(edge.length) <- child
   CrisprNodes <- child %in% CrisprNode
@@ -522,12 +633,14 @@ tree_propose <- function(tree0, t_tol, t2, prob_internal=NULL){
       h1 <- NewDis2[brokenEdge.childNode_Siblings]
       brokenEdge.childNode_Des <- unique(c(brokenEdge.childNode, Descendants(tree, brokenEdge.childNode, 'all')))
       h2 <- NewDis2[brokenEdge.childNode_Des]
-      if(max(h1)<(t_tol-10^(-6))){
-        newEdgeLength[as.character(brokenEdge.childNode_Siblings)] <- newEdgeLength[as.character(brokenEdge.childNode_Siblings)]/(max(h1)-h)*(t_tol-h)
+      m1 <- suppressWarnings(max(h1, na.rm = TRUE))
+      if (is.finite(m1) && is.finite(h) && m1 < (t_tol - 1e-6) && (m1 - h) > 0) {
+        newEdgeLength[as.character(brokenEdge.childNode_Siblings)] <- newEdgeLength[as.character(brokenEdge.childNode_Siblings)]/(m1 - h) * (t_tol - h)
         tree$edge.length <- newEdgeLength
       }
-      if(max(h2)<(t_tol-10^(-6))){
-        newEdgeLength[as.character(brokenEdge.childNode_Des)] <- newEdgeLength[as.character(brokenEdge.childNode_Des)]/(max(h2)-h)*(t_tol-h)
+      m2 <- suppressWarnings(max(h2, na.rm = TRUE))
+      if (is.finite(m2) && is.finite(h) && m2 < (t_tol - 1e-6) && (m2 - h) > 0) {
+        newEdgeLength[as.character(brokenEdge.childNode_Des)] <- newEdgeLength[as.character(brokenEdge.childNode_Des)]/(m2 - h) * (t_tol - h)
         tree$edge.length <- newEdgeLength
       }
     }
@@ -549,19 +662,26 @@ tree_propose <- function(tree0, t_tol, t2, prob_internal=NULL){
 ########## all prior #########################
 #######################################################
 log_prior_all <- function(samp, Params, temper){
-  S_lpriors <- sum(dexp(samp$S[length(samp$S)-1], rate = Params$S_exp, log = TRUE))
-  l_lpriors <- sum(dlnorm(samp$l, meanlog = Params$l_meanlog, sdlog = Params$l_sdlog, log = TRUE))
-  c_lpriors <- sum(dlnorm(samp$c, meanlog = Params$c_meanlog, sdlog = Params$c_sdlog, log = TRUE))
+  # scalar priors: sum() is unnecessary overhead
+  S_lpriors <- stats::dexp(samp$S[length(samp$S)-1], rate = Params$S_exp, log = TRUE)
+  l_lpriors <- stats::dlnorm(samp$l, meanlog = Params$l_meanlog, sdlog = Params$l_sdlog, log = TRUE)
+  c_lpriors <- stats::dlnorm(samp$c, meanlog = Params$c_meanlog, sdlog = Params$c_sdlog, log = TRUE)
   tree_lpriors <- -LikConstantn(lambda = Params$tree_brith_rate, mu = Params$tree_death_rate, sampling=Params$tree_sampling_rate,
                                 x = getx(samp$tree),root = Params$M + 1)
-  alpha_lpriors <- dexp(samp$alpha, rate = 2, log = TRUE)
+  alpha_lpriors <- stats::dexp(samp$alpha, rate = 2, log = TRUE)
   # mu_lpriors <- dmvnorm(samp$mu, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)
   # theta_lpriors <- dmvnorm(samp$theta, rep(0, Params$K), diag(rep(1, Params$K)), log = TRUE)
-  mu_lpriors <- sum(mclust::dmvnorm(samp$mu, 0, 1, log = TRUE))
-  theta_lpriors <- sum(mclust::dmvnorm(samp$theta, 0, 1, log = TRUE))
+  # iid N(0,1): sum of univariate log-densities is exactly the MVN log-density with identity covariance
+  mu_lpriors <- sum(stats::dnorm(samp$mu, mean = 0, sd = 1, log = TRUE))
+  theta_lpriors <- sum(stats::dnorm(samp$theta, mean = 0, sd = 1, log = TRUE))
   sigma_lpriors <- sum(LaplacesDemon::dhalft(samp$sigma, scale= 0.25, nu=1, log = TRUE))
+  t2_lpriors <- 0
+  if (isTRUE(Params$sample_t2)) {
+    if (is.null(samp$t2)) return(-Inf)
+    t2_lpriors <- log_prior_t2(samp$t2, Params)
+  }
   all_lpriors <- S_lpriors + l_lpriors + c_lpriors + tree_lpriors + alpha_lpriors +
-    mu_lpriors + theta_lpriors + sigma_lpriors
+    mu_lpriors + theta_lpriors + sigma_lpriors + t2_lpriors
   return(all_lpriors/temper)
 }
 

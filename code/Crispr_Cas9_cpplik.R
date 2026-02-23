@@ -1,5 +1,5 @@
 
-sourceCpp(code='
+cpp_code <- '
 #include <RcppArmadillo.h>
 #include <RcppArmadilloExtensions/sample.h>
 #include <math.h>
@@ -7,6 +7,9 @@ sourceCpp(code='
 #include <string>
 #include <sstream>
 #include <cmath>
+#include <vector>
+#include <unordered_map>
+#include <cstdlib>
 using namespace Rcpp;
 using namespace std;
 //[[Rcpp::depends(RcppArmadillo)]]
@@ -37,18 +40,9 @@ double Bt(double l, double t) {
 
 //[[Rcpp::export]]
 arma::vec Ct(arma::vec S, double at, double bt) {
-    arma::vec ct(S.size());
-
-    double sumS = 0.0;
-    for (const auto& s : S) {
-        sumS += s;
-    }
-
-    for (size_t i = 0; i < S.size(); ++i) {
-        ct[i] = S[i] * (bt - at) / sumS;
-    }
-
-    return ct;
+  // Vectorized version (exactly equivalent)
+  const double sumS = arma::accu(S);
+  return S * (bt - at) / sumS;
 }
 
 //[[Rcpp::export]]
@@ -91,9 +85,9 @@ arma::mat P_mat(int k, List tree, arma::vec dis_node_root, arma::vec state, doub
   //Rcout<<"step2:"<<std::endl;
   //Rcout<<P<<std::endl;
 
-  arma::vec ct= Ct(S, at, bt);
   //Rcout<<arma::any(nodes_Cas9 == k)<<std::endl;
   if (arma::any(nodes_Cas9 == k)) {
+    arma::vec ct = Ct(S, at, bt);
     P(0,0) = at;
     for (int j = 2; j < numCols; j++) {
         P(0,j) = ct(j-2);
@@ -115,9 +109,9 @@ arma::mat calculatePartials(int k, List tree, arma::vec dis_node_root, arma::vec
   //Rcout<<pp<< std::endl;
   arma::vec children_1 = tree_childlist[pp_str];
   //Rcout<<children_1<< std::endl;
-  arma::ivec children(children_1.n_elem); // 创建一个与vec相同大小的arma::ivec对象
+  arma::ivec children(children_1.n_elem);
   for (arma::uword i = 0; i < children_1.n_elem; ++i) {
-     children(i) = static_cast<int>(std::round(children_1(i))); // 将double值转换为int，并存储在intVec中
+     children(i) = static_cast<int>(std::round(children_1(i))); 
   }
   //Rcout<<children<< std::endl;
   if (children.size() == 2) { // node with two children
@@ -160,51 +154,226 @@ return ParentPartials;
 
 }
 //[[Rcpp::export]]
-double tree_likehood(List tree_Cas9, arma::vec tree_PostOrder, arma::vec dis_node_root, List tree_childlist, arma::mat state_matrix, arma::vec state, double t1, double t2, double r, double l, arma::vec S, bool loglik = true){
-  int N = state_matrix.n_rows;
-  //Rcout << N << std::endl;
-  int n_site = state_matrix.n_cols;
-  int Nnode = tree_Cas9["Nnode"];
-  int M = N + Nnode;
-  double log_lik = 0.0;
-  arma::uvec indices(1);
-  for(int m=0; m < n_site; m++){
-    //Rcout << m << std::endl;
-    Rcpp::List Partials = Rcpp::List::create();
-    for(int i=0; i < M; i++){
-      int k = tree_PostOrder[i];
-      if(k <= N){
-        arma::vec Partial = arma::zeros(state.size() + 2);
-        if(state_matrix(k-1, m)==0){
-          indices(0) = 0;
+double tree_likehood(List tree_Cas9, arma::vec tree_PostOrder, arma::vec dis_node_root, List tree_childlist, arma::mat state_matrix, arma::vec state, double t1, double t2, double r, double l, arma::vec S, bool loglik = true, bool linearS = true){
+  const int N = state_matrix.n_rows;
+  const int n_site = state_matrix.n_cols;
+  const int Nnode = as<int>(tree_Cas9["Nnode"]);
+  const int M = N + Nnode;
+  const int nStates = state.size() + 2;
+
+  // Extract edge/edge.length once (huge hot path in the old P_mat)
+  arma::vec edge_len = tree_Cas9["edge.length"];
+  arma::mat edge = tree_Cas9["edge"]; // columns: parent, child
+
+  // Precompute branch length for each child node id (1..M)
+  arma::vec brlen_by_child(M + 1, arma::fill::zeros);
+  for (arma::uword e = 0; e < edge.n_rows; ++e) {
+    const int child_id = (int)std::lround(edge(e, 1));
+    if (child_id >= 1 && child_id <= M) {
+      brlen_by_child(child_id) = edge_len(e);
+    }
+  }
+
+  // Precompute Cas9 node membership once (P_mat checks this each time)
+  std::vector<unsigned char> isCas9(M + 1, 0);
+  const double lo = t1 + 1e-6;
+  const double hi = t2 + 1e-6;
+  for (int node = 1; node <= M && (node - 1) < (int)dis_node_root.n_elem; ++node) {
+    const double d = dis_node_root(node - 1);
+    if (d >= lo && d <= hi) isCas9[node] = 1;
+  }
+
+  // Preconvert children list (avoid string-key list access per node)
+  std::vector< std::vector<int> > children_by_node(M + 1);
+  Rcpp::CharacterVector cnames = tree_childlist.names();
+  for (int i = 0; i < tree_childlist.size(); ++i) {
+    if (cnames.size() == tree_childlist.size()) {
+      const std::string name = Rcpp::as<std::string>(cnames[i]);
+      const int node = std::atoi(name.c_str());
+      if (node >= 1 && node <= M) {
+        Rcpp::NumericVector ch = tree_childlist[i];
+        std::vector<int> out;
+        out.reserve(ch.size());
+        for (int j = 0; j < ch.size(); ++j) {
+          out.push_back((int)std::lround(ch[j]));
         }
-        if(state_matrix(k-1, m)==-1){
-          indices(0) = 1;
-        }
-        if(state_matrix(k-1, m)>0){
-          indices = find(state == state_matrix(k-1, m));
-          indices += 2;
-        }
-        Partial.elem(indices).fill(1.0);
-        Partials.push_back(Partial, std::to_string(k));
-        //Rcout << "k=" << k << std::endl;
-        //Rcout << Partial << std::endl;
-      }else{
-        arma::mat ParentPartials = calculatePartials(k, tree_Cas9, dis_node_root, state, tree_childlist, Partials, t1, t2, r, l, S);
-        Partials.push_back(ParentPartials, std::to_string(k));
-        //Rcout << "k=" << k << std::endl;
-        //Rcout << ParentPartials << std::endl;
+        children_by_node[node] = std::move(out);
       }
     }
-    arma::vec root_Partial = Partials[std::to_string(N+1)];
-    //Rcout << root_Partial(0) << std::endl;
-    log_lik = log_lik + log(root_Partial(0));
-    //Rcout << "log_lik=" << log_lik << std::endl;
   }
-  if(loglik==true){
+
+  // Build fast lookup from observed state value -> column index in partial vector
+  std::unordered_map<int, int> state_to_idx;
+  state_to_idx.reserve(state.size() * 2);
+  for (int j = 0; j < (int)state.n_elem; ++j) {
+    state_to_idx[(int)std::lround(state(j))] = j + 2;
+  }
+
+  // Dense path precomputes full P matrices (O(S^2) memory/time per node).
+  std::vector<arma::mat> P_by_child;
+
+  // Linear-in-S path: exploit CRISPR model structure.
+  // State indices: 0=unedited, 1=silenced, 2..=scar states.
+  struct EdgeParams {
+    double bt;
+    double a0; // unedited->unedited prob: at if Cas9 active on this edge, else bt
+    bool cas9;
+    arma::vec ct; // length = (nStates-2) when cas9=true, empty otherwise
+  };
+  std::vector<EdgeParams> params_by_child;
+
+  if (!linearS) {
+    // Precompute transition matrices for each child node once per likelihood call.
+    // This eliminates repeated P construction inside the (site x node) hot loop.
+    P_by_child.resize(M + 1);
+    for (int k = 1; k <= M; ++k) {
+      arma::mat P = arma::mat(nStates, nStates, arma::fill::zeros);
+      double t = brlen_by_child(k);
+      if (t == 0.0) t = 1e-5;
+
+      const double at = At(r, t);
+      const double bt = Bt(l, t);
+
+      P(0, 1) = 1 - bt;
+      P(1, 1) = 1;
+      for (int i = 2; i < nStates; i++) {
+        P(i, 1) = 1 - bt;
+        P(i, i) = bt;
+      }
+
+      if (isCas9[k]) {
+        arma::vec ct = Ct(S, at, bt);
+        P(0, 0) = at;
+        for (int j = 2; j < nStates; j++) {
+          P(0, j) = ct(j - 2);
+        }
+      } else {
+        P(0, 0) = bt;
+      }
+      P_by_child[k] = std::move(P);
+    }
+  } else {
+    // Precompute edge parameters (O(S) memory per node).
+    params_by_child.resize(M + 1);
+    for (int k = 1; k <= M; ++k) {
+      double t = brlen_by_child(k);
+      if (t == 0.0) t = 1e-5;
+      const double at = At(r, t);
+      const double bt = Bt(l, t);
+      EdgeParams ep;
+      ep.bt = bt;
+      ep.cas9 = isCas9[k] != 0;
+      ep.a0 = ep.cas9 ? at : bt;
+      if (ep.cas9) {
+        ep.ct = Ct(S, at, bt);
+      }
+      params_by_child[k] = std::move(ep);
+    }
+  }
+
+  auto apply_P_fast = [&](const EdgeParams& ep, const arma::vec& x, arma::vec& y) {
+    // y = P * x, using the model sparsity/structure.
+    // P rows: parent states; columns: child states.
+    y.zeros();
+    const double x1 = x(1);
+
+    // parent silenced -> child silenced w.p. 1
+    y(1) = x1;
+
+    // parent scar_i -> child silenced with (1-bt), stay scar_i with bt
+    if (nStates > 2) {
+      y.subvec(2, nStates - 1) = ep.bt * x.subvec(2, nStates - 1);
+      y.subvec(2, nStates - 1) += (1.0 - ep.bt) * x1;
+    }
+
+    // parent unedited
+    double dot_ct = 0.0;
+    if (ep.cas9 && nStates > 2) {
+      dot_ct = arma::dot(ep.ct, x.subvec(2, nStates - 1));
+    }
+    y(0) = (1.0 - ep.bt) * x1 + ep.a0 * x(0) + dot_ct;
+  };
+
+  double log_lik = 0.0;
+
+  // Partials stored as columns indexed by node id (1..M). Column 0 unused.
+  arma::mat partials(nStates, M + 1);
+  arma::vec tmp1(nStates);
+  arma::vec tmp2(nStates);
+
+  for (int m = 0; m < n_site; m++) {
+    partials.zeros();
+
+    for (int i = 0; i < M; i++) {
+      const int k = (int)tree_PostOrder(i);
+      if (k <= N) {
+        const double v = state_matrix(k - 1, m);
+        int idx = 0;
+        if (v == -1) {
+          idx = 1;
+        } else if (v > 0) {
+          auto it = state_to_idx.find((int)std::lround(v));
+          if (it != state_to_idx.end()) idx = it->second;
+        }
+        partials(idx, k) = 1.0;
+      } else {
+        const std::vector<int>& kids = children_by_node[k];
+        if (kids.size() == 2) {
+          const int c1 = kids[0];
+          const int c2 = kids[1];
+          if (!linearS) {
+            const arma::mat& P1 = P_by_child[c1];
+            const arma::mat& P2 = P_by_child[c2];
+            partials.col(k) = (P1 * partials.col(c1)) % (P2 * partials.col(c2));
+          } else {
+            apply_P_fast(params_by_child[c1], partials.col(c1), tmp1);
+            apply_P_fast(params_by_child[c2], partials.col(c2), tmp2);
+            partials.col(k) = tmp1 % tmp2;
+          }
+        } else if (kids.size() == 1) {
+          const int c1 = kids[0];
+          if (!linearS) {
+            partials.col(k) = P_by_child[c1] * partials.col(c1);
+          } else {
+            apply_P_fast(params_by_child[c1], partials.col(c1), tmp1);
+            partials.col(k) = tmp1;
+          }
+        } else if (kids.size() > 2) {
+          // Preserve behavior for multifurcations
+          const int c1 = kids[0];
+          if (!linearS) {
+            arma::vec acc = P_by_child[c1] * partials.col(c1);
+            for (size_t j = 1; j < kids.size(); ++j) {
+              const int cj = kids[j];
+              acc = acc % (P_by_child[cj] * partials.col(cj));
+            }
+            partials.col(k) = acc;
+          } else {
+            apply_P_fast(params_by_child[c1], partials.col(c1), tmp1);
+            arma::vec acc = tmp1;
+            for (size_t j = 1; j < kids.size(); ++j) {
+              const int cj = kids[j];
+              apply_P_fast(params_by_child[cj], partials.col(cj), tmp1);
+              acc = acc % tmp1;
+            }
+            partials.col(k) = acc;
+          }
+        }
+      }
+    }
+
+    const double root0 = partials(0, N + 1);
+    log_lik += std::log(root0);
+  }
+
+  if (loglik == true) {
     return log_lik;
-  }else{
-    return std::exp(log_lik);
   }
+  return std::exp(log_lik);
 }
-')
+'
+
+cpp_file <- file.path(tempdir(), "bilint_cas9_cpplik.cpp")
+writeLines(cpp_code, cpp_file)
+Rcpp::sourceCpp(cpp_file)
+rm(cpp_code, cpp_file)

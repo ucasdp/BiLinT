@@ -307,12 +307,17 @@ tree_transform2 <- function(tree){
   names(regime_pos1) <- c((N+1), root2_children, c(1:N))
 
   PCMTreeSetPartRegimes(tree, part.regime = regime_pos1, setPartition = TRUE)
-  palette <- PCMColorPalette(length(regime_pos1), names(regime_pos1))
-  # Plot the tree with branches colored according to the regimes.
-  # The following function call works only if the ggtree package is installed, # which is not on CRAN:
-  PCMTreePlot(tree) + ggtree::geom_nodelab(size = 5) + geom_tiplab(size=5)
   tree_info <- list(tree= tree, regime = unique(regime_pos1))
   return(tree_info)
+}
+
+cas9_cache <- function(tree, t1, t2) {
+  tree_Cas9 <- tree_transform1(tree, t1, t2)
+  tree_PostOrder <- c(reorder_tree_edges(tree_Cas9, root_to_tips = FALSE)$edge[,2], length(tree_Cas9$tip.label)+1)
+  childlist <- ChildList(tree_Cas9, tree_PostOrder)
+  dis <- get_all_distances_to_root(tree_Cas9, as_edge_count = FALSE)
+  dis[which(dis == 0)] <- 10^(-5)
+  list(tree_Cas9 = tree_Cas9, tree_PostOrder = tree_PostOrder, childlist = childlist, dis = dis)
 }
 
 

@@ -10,7 +10,25 @@ get_samp <- function(MCMCout,var_name,subset=NULL)
   MCMCout <- MCMCout[subset]
 
   Ns <- length(MCMCout)  # number of samples
-  temp <- MCMCout[[1]][[var_name]]
+  if (Ns == 0) {
+    return(numeric(0))
+  }
+
+  # Find the first non-empty sample to infer the shape.
+  temp <- NULL
+  for (k in 1:Ns) {
+    cand <- MCMCout[[k]][[var_name]]
+    if (!is.null(cand) && length(cand) > 0) {
+      temp <- cand
+      break
+    }
+  }
+
+  # If all values are missing/empty, return NA vector.
+  if (is.null(temp) || length(temp) == 0) {
+    return(rep(NA_real_, Ns))
+  }
+
   if(is.vector(temp)){temp <- matrix(temp,nrow = 1)}
   if(is.matrix(temp)){
     if(ncol(temp)==1){
@@ -23,11 +41,15 @@ get_samp <- function(MCMCout,var_name,subset=NULL)
 
   if(is.null(d1))# no row dimension,then a scalar
   {
-    out <- c(1:Ns)
+    out <- rep(NA_real_, Ns)
     for(z in 1:Ns)
     {
       temp <- MCMCout[[z]][[var_name]]
-      out[z] <- temp
+      if (is.null(temp) || length(temp) == 0) {
+        out[z] <- NA_real_
+      } else {
+        out[z] <- as.numeric(temp)[1]
+      }
     }
   } else if(d1==1)  # if parameter is vector, get samples as a matrix
   {
@@ -35,14 +57,22 @@ get_samp <- function(MCMCout,var_name,subset=NULL)
     for(z in 1:Ns)
     {
       temp <- MCMCout[[z]][[var_name]]
-      out[z,] <- temp
+      if (is.null(temp) || length(temp) == 0) {
+        out[z,] <- rep(NA_real_, d2)
+      } else {
+        out[z,] <- temp
+      }
     }
   } else {  # else get samples as an array
     out <- array(0,dim=c(d1,d2,Ns))
     for(z in 1:Ns)
     {
       temp <- MCMCout[[z]][[var_name]]
-      out[,,z] <- temp
+      if (is.null(temp) || length(temp) == 0) {
+        out[,,z] <- NA_real_
+      } else {
+        out[,,z] <- temp
+      }
     }
   }
   out
@@ -70,9 +100,13 @@ tree_estimation <- function(Trace){
     pr <- log_prior_all(Trace[[i]], Params, 1)
     prior <- c(prior, pr)
   }
-  pos <- temp_likelihood+prior
-  which.max(pos)
-  tree <- Trace[[which.max(pos)]]$tree
+  pos <- temp_likelihood + prior
+  pos[!is.finite(pos)] <- -Inf
+  idx <- which.max(pos)
+  if (length(idx) == 0 || !is.finite(pos[idx])) {
+    stop("tree_estimation failed: no finite posterior scores in Trace")
+  }
+  tree <- Trace[[idx]]$tree
   tree1 <- tree
   tree$edge <- tree1$edge[order(tree1$edge[,1], tree1$edge[,2], decreasing = TRUE), ]
   tree$edge.length <- tree1$edge.length[order(tree1$edge[,1], tree1$edge[,2], decreasing = TRUE)]
